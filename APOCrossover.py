@@ -13,7 +13,7 @@ plt.style.use("seaborn")
 class APOCrossover(Backtest):
     
     def __repr__(self):
-        return "NameTheStrategy(symbol = {}, start = {}, end = {})".format(self.symbol, self.start, self.end)
+        return "APOCrossover(symbol = {}, start = {}, end = {})".format(self.symbol, self.start, self.end)
              
     def test_strategy(self, params):
         
