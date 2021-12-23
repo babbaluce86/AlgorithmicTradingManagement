@@ -1,4 +1,5 @@
-from FrontOffice.backtesting import Backtest
+from AlgorithmicTradingManagement.AlgoManager.FrontOffice.backtesting import Backtest
+from AlgorithmicTradingManagement.AlgoManager.FrontOffice.Indicator import Indicator
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta

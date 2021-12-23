@@ -1,4 +1,5 @@
-from FrontOffice.backtesting import Backtest
+from AlgorithmicTradingManagement.AlgoManager.FrontOffice.backtesting import Backtest
+from AlgorithmicTradingManagement.AlgoManager.FrontOffice.Indicator import Indicator
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -33,8 +34,10 @@ class DoubleCrossover(Backtest):
     def on_data(self, smas):
         
         data = self.data[['Close', 'returns']].copy()
-        data['SMA_S'] = data.Close.rolling(window=smas[0]).mean()
-        data['SMA_L'] = data.Close.rolling(window=smas[1]).mean()
+        data['SMA_S'] = Indicator(data.Close).SMA(smas[0])
+        data['SMA_L'] = Indicator(data.Close).SMA(smas[1])
+        
+        data.dropna(inplace = True)
         
         data['positions'] = 0
         

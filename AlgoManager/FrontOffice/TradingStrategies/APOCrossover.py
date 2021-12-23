@@ -10,19 +10,20 @@ warnings.filterwarnings("ignore")
 plt.style.use("seaborn")
 
 
-class TurtleBollinger(Backtest):
+class APOCrossover(Backtest):
     
     def __repr__(self):
-        return "Turtle(symbol = {}, start = {}, end = {})".format(self.symbol, self.start, self.end)
+        return "NameTheStrategy(symbol = {}, start = {}, end = {})".format(self.symbol, self.start, self.end)
              
     def test_strategy(self, params):
         
-        #call on data parameters and run backtest#
+        self.EMA_S = params[0]
+        self.EMA_L = params[1]
+         
         
         self.on_data(params)
         self.run_backtest()
         
-        #Store and show relevant data
         
         data = self.results.copy()
         data['creturns'] = data.returns.cumsum().apply(np.exp)
@@ -33,30 +34,25 @@ class TurtleBollinger(Backtest):
     
     def on_data(self, params):
         
-        #Prepare the Data#
-        
         data = self.data[['Close','returns']].copy()
         
-        data = Indicator(data).BollingerBands(sma = params[0], 
-                                             scaling_factor = params[1])
-        
-        data['distance'] = data.Close - data.middleBand
+        data = Indicator(data).APO(params[0], params[1])
         
         data.dropna(inplace = True)
         
+        
         data['positions'] = 0
         
-        cond1 = data.Close > data.upperBand 
-        cond2 = data.Close < data.lowerBand 
-        cond3 = data.distance * data.distance.shift(1) < 0
+        cond1 = data.APO > 0
+        cond2 = data.APO < 0
         
         data.loc[cond1, 'positions'] = 1
         data.loc[cond2, 'positions'] = -1
-        data.loc[cond3, 'positions'] = 0
         
+        #store it#
         self.results = data
     
-    def optimize_strategy(self, SMA_range, DEV_range, metric = "multiple"):
+    def optimize_strategy(self, EMA_S_range, EMA_L_range, metric = "multiple"):
         
         self.metric = metric
         
@@ -68,20 +64,23 @@ class TurtleBollinger(Backtest):
             
             performance_function = self.calculate_sharpe
             
-        sma_range = range(*SMA_range)
-        dev_range = range(*DEV_range)
+        #Optimization Logic#
         
-        combinations = list(product(sma_range,dev_range))
+        ema_s_range = range(*EMA_S_range)
+        ema_l_range = range(*EMA_L_range)
+        
+        combinations = list(product(ema_s_range, ema_l_range))
         
         performance = []
         
         for comb in combinations:
-            self.on_data(params=comb)
+            
+            self.on_data(params = comb)
             self.run_backtest()
             performance.append(performance_function(self.results.strategy))
         
         
-        self.performance_overview = pd.DataFrame(data=np.array(combinations), columns = ['sma', 'scaling_factor'])
+        self.performance_overview = pd.DataFrame(data = np.array(combinations), columns = ['ema_s', 'ema_l'])
         self.performance_overview['performance'] = performance
         
         self.find_best_strategy()
@@ -90,11 +89,12 @@ class TurtleBollinger(Backtest):
     def find_best_strategy(self):
         
         best = self.performance_overview.nlargest(1, 'performance')
-        best_sma = best.sma.iloc[0]
-        best_factor = best.scaling_factor.iloc[0]
+        
+        best_ema_s = best.ema_s.iloc[0]
+        best_ema_l = best.ema_l.iloc[0]
         best_performance = best.performance.iloc[0]
         
-        print('Returns perc. : {} | SMA = {} | Scaling Factor = {}'.format(best_performance, best_sma, best_factor))
+        print('Returns perc. : {} | EMA_S = {} | EMA_L= {} | ...'.format(best_performance, best_ema_s, best_ema_l))
         
-        self.test_strategy(params = (best_sma, best_factor))
+        self.test_strategy(params = (best_ema_s, best_ema_l))
         
