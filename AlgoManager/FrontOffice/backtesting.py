@@ -7,6 +7,10 @@ import yfinance as yf
 
 class Backtest(object):
     
+    '''This is a vectorized backtesting class, it provides a simple, fast and efficient code,
+       be aware that in this backtesting style there are some drawbacks, it is indeed difficult to test path
+       dependednt and recursive strategies. Nevertheless this can provide a fast engine to screen strategies.'''
+    
     __metaclass__ = ABCMeta
     
     def __init__(self, symbol, start, end, tc, market = 'crypto', filepath=None, yahoo=None):
