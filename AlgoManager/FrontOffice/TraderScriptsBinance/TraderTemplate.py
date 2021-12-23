@@ -5,7 +5,7 @@ import time
 from binance.client import Client
 from binance import ThreadedWebsocketManager
 
-from FrontOffice.tradingBinance import TradingBinance
+from AlgorithmicTradingManagement.AlgoManager.FrontOffice.tradingBinance import TradingBinance
 
 
 class NameTrader(TradingBinance):
@@ -42,7 +42,8 @@ if __name__ == "__main__":
     units = units
     position = 0
     
-    trader = NameTrader(symbol = symbol, bar_length = bar_length,                         your_strategy_parameters = your_strategy_parameters
+    trader = NameTrader(symbol = symbol, bar_length = bar_length,
+                        your_strategy_parameters = your_strategy_parameters,
                         units = units, 
                         position = position)
 
