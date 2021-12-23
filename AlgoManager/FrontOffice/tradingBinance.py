@@ -14,6 +14,8 @@ client = Client(api_key=APIkey, api_secret = APIsecret, tld = 'com', testnet = T
 
 class TradingBinance(object):
     
+     __metaclass__ = ABCMeta
+    
     def __init__(self, symbol, bar_length, units, stop_stream, position = 0):
         
         self.symbol = symbol
