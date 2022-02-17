@@ -1,9 +1,25 @@
 import pandas as pd
 import numpy as np
+import math
+import calendar
+
 import yfinance as yf
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
-plt.style.use('seaborn')
+
+import seaborn as sns
+
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+import tensorflow as tf
+from tensorflow import keras
+
+np.random.seed(42)
+tf.random.set_seed(42)
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM, Dropout, RepeatVector, TimeDistributed
+
 
 class FinancialAnalysis(): #Parent Class
     
@@ -191,7 +207,127 @@ class RiskReturn(FinancialAnalysis): #Child Class
 #######################################################################################
 
 
+class DetectAnomaly(FinancialAnalysis):
+    
+        
+    def __init__(self, ticker, start, end, interval, time_steps):
+        
+        self.time_steps = time_steps
+        
+        super().__init__(ticker, start, end, interval) #overwrites from the Parent Class
+    
+        self.scaler = StandardScaler()
+        self.prepare_data()
+        self.train_test_subsets()
+        self.autoencoder()
+        self.get_score_df()
+        
+    def __repr__(self):
+        return 'DetectAnomaly(ticker = {}, start = {}, end = {}, interval = {}, filepath = {}'.format(self._ticker, self.start, self.end, self.interval, self.filepath)
+        
+    
+    def prepare_data(self):
+        
+        data = self.data.copy()
+        
+        size = math.ceil(len(data)*.95)
 
+        self.train, self.test = data.Close.iloc[0:size].to_frame('close'), data.Close.iloc[size:len(data)].to_frame('close')
+        
+        
+        self.scaler.fit(self.train)
+
+        self.train['close'] = self.scaler.transform(self.train[['close']])
+        self.test['close'] = self.scaler.transform(self.test[['close']])
+    
+    def create_dataset(self, X, y):
+    
+        Xs, ys = [], []
+
+        for k in range(len(X)-self.time_steps):
+            Xs.append(X.iloc[k:(k+self.time_steps)].values)
+            ys.append(y.iloc[k+self.time_steps])
+
+        return np.array(Xs), np.array(ys)
+    
+    def train_test_subsets(self):
+        
+        self.X_train, self.y_train = self.create_dataset(self.train[['close']], self.train['close'])
+        self.X_test, self.y_test = self.create_dataset(self.test[['close']], self.test['close'])
+        
+    def autoencoder(self):
+        
+        X_train = self.X_train.copy()
+        X_test = self.X_test.copy()
+        y_train = self.y_train.copy()
+        y_test = self.y_test.copy()
+        
+        model = Sequential()
+        model.add(LSTM(units = 64, input_shape = (X_train.shape[1], X_train.shape[2])))
+        model.add(Dropout(rate=0.2))
+        model.add(RepeatVector(n=X_train.shape[1]))
+        model.add(LSTM(units = 64, return_sequences=True, ))
+        model.add(Dropout(rate=0.2))
+        model.add(TimeDistributed(Dense(units = X_train.shape[2])))
+
+        model.compile(loss = 'mae', optimizer = 'adam')
+        
+        history = model.fit(X_train, y_train, epochs=10, batch_size=32, 
+                    validation_split=0.1,
+                    callbacks=[keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, mode='min')], 
+                    shuffle=False)
+        
+        
+        self.X_test_pred = model.predict(X_test)
+
+        self.test_mae_loss = np.mean(np.abs(self.X_test_pred, X_test), axis=1)
+        
+        
+    def get_threshold(self):
+        
+        test_mae_loss = self.test_mae_loss.copy()
+        scores = test_mae_loss.copy()
+        scores.sort()
+        cut_off = int(.8*len(scores))
+        threshold = scores[cut_off]
+        
+        return float(threshold)
+    
+    def get_score_df(self):
+        
+        
+        self.test_score_df = pd.DataFrame(index=self.test[self.time_steps:].index)
+        self.test_score_df['loss'] = self.test_mae_loss.copy()
+        self.test_score_df['threshold'] = self.get_threshold()
+        self.test_score_df['anomaly'] = self.test_score_df.loss > self.test_score_df.threshold
+        self.test_score_df['close'] = self.test[self.time_steps:].close
+        
+        self.anomalies = self.test_score_df[self.test_score_df.anomaly == True]
+        
+    def plot_anomalies(self):
+        
+        
+        plt.figure(figsize = (16,9))
+        
+        
+        plt.plot(
+            
+            self.test[self.time_steps:].index, 
+            self.scaler.inverse_transform(self.test[self.time_steps:].close), 
+            label='close price'
+            
+        );
+
+        sns.scatterplot(
+              self.anomalies.index,
+              self.scaler.inverse_transform(self.anomalies.close),
+              color=sns.color_palette()[1],
+              s=52,
+              label='anomaly'
+            )
+        plt.xticks(rotation=25)
+        plt.legend()
+        plt.show();   
 
         
         
